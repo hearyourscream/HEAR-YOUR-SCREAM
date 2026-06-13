@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HEAR YOUR SCREAM - Japanese Horror Game</title>
+    <link href="https://fonts.googleapis.com/css2?family=Creepster&family=Nosifer&family=Special+Elite&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --blood-red: #8b0000;
+            --dark-red: #4a0000;
+            --black: #0a0a0a;
+            --grey: #1a1a1a;
+            --white: #e0e0e0;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            background-color: var(--black);
+            color: var(--white);
+            font-family: 'Special Elite', 'Noto Sans JP', monospace;
+            overflow-x: hidden;
+            cursor: crosshair;
+        }
+
+        /* Static Noise */
+        .noise {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1000;
+            opacity: 0.05;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+            animation: noise 0.5s steps(10) infinite;
+        }
+
+        @keyframes noise {
+            0%, 100% { transform: translate(0, 0); }
+            10% { transform: translate(-5%, -5%); }
+            20% { transform: translate(5%, 5%); }
+            30% { transform: translate(-5%, 5%); }
+            40% { transform: translate(5%, -5%); }
+            50% { transform: translate(-5%, 0); }
+            60% { transform: translate(5%, 0); }
+            70% { transform: translate(0, 5%); }
+            80% { transform: translate(0, -5%); }
+            90% { transform: translate(5%, 5%); }
+        }
+
+        /* Scanlines */
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                to bottom,
+                rgba(255,255,255,0),
+                rgba(255,255,255,0) 50%,
+                rgba(0,0,0,0.1) 50%,
+                rgba(0,0,0,0.1)
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 999;
+        }
+
+        /* Vignette */
+        .vignette {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, transparent 40%, rgba(0,0,0,0.8) 100%);
+            pointer-events: none;
+            z-index: 998;
+        }
+
+        /* Blood Splatter Flash Effect - FULL SCREEN */
+        .blood-flash {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 997;
+            opacity: 0;
+            background: radial-gradient(circle at 50% 50%, rgba(139,0,0,0.3) 0%, rgba(139,0,0,0.1) 50%, transparent 70%);
+            transition: opacity 0.05s;
+        }
+
+        .blood-flash.active {
+            opacity: 1;
+            animation: bloodPulse 0.5s;
+        }
+
+        @keyframes bloodPulse {
+            0% { transform: scale(0.8); opacity: 0; }
+            50% { opacity: 0.6; }
+            100% { transform: scale(1.2); opacity: 0; }
+        }
+
+        /* Screen tint during Japanese mode */
+        .japanese-tint {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(139, 0, 0, 0.05);
+            pointer-events: none;
+            z-index: 500;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .japanese-tint.active {
+            opacity: 1;
+        }
+
+        /* Main Container */
+        .container {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            z-index: 1;
+            padding: 20px;
+        }
+
+        /* Glitch Title */
+        .glitch-wrapper {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        .glitch {
+            font-family: 'Nosifer', cursive;
+            font-size: clamp(2.5rem, 8vw, 6rem);
+            color: var(--white);
+            text-shadow: 
+                0.05em 0 0 rgba(255,0,0,0.75),
+                -0.025em -0.05em 0 rgba(0,255,0,0.75),
+                0.025em 0.05em 0 rgba(0,0,255,0.75);
+            animation: glitch 3s infinite;
+            position: relative;
+            letter-spacing: 0.1em;
+            line-height: 1.2;
+        }
+
+        .glitch::before,
+        .glitch::after {
+            content: attr(data-text);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .glitch::before {
+            animation: glitch-1 0.3s infinite;
+            color: #ff0000;
+            z-index: -1;
+        }
+
+        .glitch::after {
+            animation: glitch-2 0.3s infinite;
+            color: #00ff00;
+            z-index: -2;
+        }
+
+        @keyframes glitch {
+            0% { text-shadow: 0.05em 0 0 rgba(255,0,0,0.75), -0.05em -0.025em 0 rgba(0,255,0,0.75), -0.025em 0.05em 0 rgba(0,0,255,0.75); }
+            14% { text-shadow: 0.05em 0 0 rgba(255,0,0,0.75), -0.05em -0.025em 0 rgba(0,255,0,0.75), -0.025em 0.05em 0 rgba(0,0,255,0.75); }
+            15% { text-shadow: -0.05em -0.025em 0 rgba(255,0,0,0.75), 0.025em 0.025em 0 rgba(0,255,0,0.75), -0.05em -0.05em 0 rgba(0,0,255,0.75); }
+            49% { text-shadow: -0.05em -0.025em 0 rgba(255,0,0,0.75), 0.025em 0.025em 0 rgba(0,255,0,0.75), -0.05em -0.05em 0 rgba(0,0,255,0.75); }
+            50% { text-shadow: 0.025em 0.05em 0 rgba(255,0,0,0.75), 0.05em 0 0 rgba(0,255,0,0.75), 0 -0.05em 0 rgba(0,0,255,0.75); }
+            99% { text-shadow: 0.025em 0.05em 0 rgba(255,0,0,0.75), 0.05em 0 0 rgba(0,255,0,0.75), 0 -0.05em 0 rgba(0,0,255,0.75); }
+            100% { text-shadow: -0.025em 0 0 rgba(255,0,0,0.75), -0.025em -0.025em 0 rgba(0,255,0,0.75), -0.025em -0.05em 0 rgba(0,0,255,0.75); }
+        }
+
+        @keyframes glitch-1 {
+            0% { clip-path: inset(0 0 85% 0); transform: translate(-2px, -2px); }
+            20% { clip-path: inset(30% 0 50% 0); transform: translate(2px, 2px); }
+            40% { clip-path: inset(50% 0 30% 0); transform: translate(-2px, 2px); }
+            60% { clip-path: inset(70% 0 10% 0); transform: translate(2px, -2px); }
+            80% { clip-path: inset(10% 0 70% 0); transform: translate(-2px, 2px); }
+            100% { clip-path: inset(0 0 85% 0); transform: translate(2px, -2px); }
+        }
+
+        @keyframes glitch-2 {
+            0% { clip-path: inset(85% 0 0 0); transform: translate(2px, 2px); }
+            20% { clip-path: inset(50% 0 30% 0); transform: translate(-2px, -2px); }
+            40% { clip-path: inset(30% 0 50% 0); transform: translate(2px, -2px); }
+            60% { clip-path: inset(10% 0 70% 0); transform: translate(-2px, 2px); }
+            80% { clip-path: inset(70% 0 10% 0); transform: translate(2px, -2px); }
+            100% { clip-path: inset(85% 0 0 0); transform: translate(-2px, 2px); }
+        }
+
+        /* Japanese Text */
+        .japanese-text {
+            font-family: 'Noto Sans JP', sans-serif;
+            font-size: 1.1rem;
+            color: var(--blood-red);
+            margin-top: 10px;
+            opacity: 0.7;
+            letter-spacing: 0.3em;
+        }
+
+        /* Flicker Subtitle */
+        .subtitle {
+            font-family: 'Creepster', cursive;
+            font-size: clamp(1rem, 2.5vw, 1.6rem);
+            color: var(--blood-red);
+            margin-top: 15px;
+            animation: flicker 4s infinite;
+            text-align: center;
+            letter-spacing: 0.2em;
+        }
+
+        @keyframes flicker {
+            0%, 100% { opacity: 1; text-shadow: 0 0 10px var(--blood-red), 0 0 20px var(--blood-red); }
+            41% { opacity: 1; }
+            42% { opacity: 0.1; }
+            43% { opacity: 1; }
+            45% { opacity: 0.1; }
+            46% { opacity: 1; }
+            62% { opacity: 1; }
+            63% { opacity: 0.1; }
+            64% { opacity: 1; }
+            80% { opacity: 1; }
+            81% { opacity: 0.1; }
+            82% { opacity: 1; }
+        }
+
+        /* Menu */
+        .menu {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            align-items: center;
+            margin-top: 40px;
+        }
+
+        .menu-item {
+            font-family: 'Creepster', cursive;
+            font-size: clamp(1.4rem, 3vw, 2rem);
+            color: var(--white);
+            text-decoration: none;
+            padding: 15px 40px;
+            border: 2px solid var(--dark-red);
+            background: rgba(74, 0, 0, 0.3);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            letter-spacing: 0.1em;
+        }
+
+        .menu-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(139, 0, 0, 0.5), transparent);
+            transition: left 0.5s;
+        }
+
+        .menu-item:hover::before {
+            left: 100%;
+        }
+
+        .menu-item:hover {
+            color: var(--blood-red);
+            border-color: var(--blood-red);
+            text-shadow: 0 0 10px var(--blood-red);
+            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(139, 0, 0, 0.5);
+        }
+
+        /* Download Button Style */
+        .download-btn {
+            background: linear-gradient(135deg, rgba(139,0,0,0.4), rgba(74,0,0,0.5));
+            border: 3px solid var(--blood-red);
+            position: relative;
+        }
+
+        .download-btn::after {
+            content: '▼';
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.8em;
+            animation: bounce 1s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(-50%); }
+            50% { transform: translateY(-30%); }
+        }
+
+        /* Screenshot Button */
+        .screenshot-btn {
+            background: linear-gradient(135deg, rgba(139,0,0,0.3), rgba(74,0,0,0.4));
+            border: 2px solid var(--blood-red);
+        }
+
+        /* Blood Drip */
+        .blood-drip {
+            position: fixed;
+            top: 0;
+            width: 2px;
+            height: 0;
+            background: linear-gradient(to bottom, transparent, var(--blood-red));
+            animation: drip 4s ease-in infinite;
+            opacity: 0.7;
+            z-index: 996;
+        }
+
+        @keyframes drip {
+            0% { height: 0; opacity: 0; }
+            10% { opacity: 0.7; }
+            90% { height: 200px; opacity: 0.7; }
+            100% { height: 250px; opacity: 0; }
+        }
+
+        /* Warning Box */
+        .warning-box {
+            border: 2px dashed var(--blood-red);
+            padding: 30px;
+            margin: 40px auto;
+            max-width: 600px;
+            text-align: center;
+            background: rgba(139, 0, 0, 0.1);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 20px rgba(139, 0, 0, 0.3); }
+            50% { box-shadow: 0 0 40px rgba(139, 0, 0, 0.6); }
+        }
+
+        .warning-text {
+            font-family: 'Nosifer', cursive;
+            color: var(--blood-red);
+            font-size: 1.2rem;
+        }
+
+        /* Scrolling Text */
+        .scrolling-text {
+            overflow: hidden;
+            white-space: nowrap;
+            margin: 40px 0;
+            border-top: 1px solid var(--dark-red);
+            border-bottom: 1px solid var(--dark-red);
+            padding: 20px 0;
+        }
+
+        .scrolling-text span {
+            display: inline-block;
+            animation: scroll 20s linear infinite;
+            font-family: 'Creepster', cursive;
+            font-size: 1.4rem;
+            color: var(--blood-red);
+            letter-spacing: 0.3em;
+        }
+
+        @keyframes scroll {
+            0% { transform: translateX(100vw); }
+            100% { transform: translateX(-100%); }
+        }
+
+        /* Content Section */
+        .content-section {
+            max-width: 900px;
+            margin: 50px auto;
+            padding: 40px;
+            border: 1px solid var(--dark-red);
+            background: rgba(10, 10, 10, 0.9);
+            position: relative;
+        }
+
+        .content-section::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, var(--blood-red), transparent, var(--blood-red));
+            z-index: -1;
+            opacity: 0.5;
+        }
+
+        .section-title {
+            font-family: 'Nosifer', cursive;
+            font-size: 1.8rem;
+            color: var(--blood-red);
+            margin-bottom: 25px;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .section-title.japanese-mode {
+            color: #ff0000;
+            text-shadow: 0 0 20px rgba(255,0,0,0.6);
+        }
+
+        .section-text {
+            font-size: 1.05rem;
+            line-height: 1.9;
+            color: #888;
+            text-align: justify;
+            margin-bottom: 15px;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .section-text:hover {
+            color: var(--white);
+        }
+
+        /* Japanese mode styling - ALL TEXT */
+        .section-text.japanese-mode {
+            color: var(--blood-red);
+            text-shadow: 0 0 10px rgba(139,0,0,0.5);
+            font-family: 'Noto Sans JP', sans-serif;
+        }
+
+        /* Image Container */
+        .image-container {
+            width: 100%;
+            max-width: 700px;
+            margin: 40px auto;
+            position: relative;
+            overflow: hidden;
+            border: 3px solid var(--dark-red);
+        }
+
+        .image-container img {
+            width: 100%;
+            height: auto;
+            filter: grayscale(100%) contrast(150%) brightness(0.6);
+            transition: all 0.5s;
+            display: block;
+        }
+
+        .image-container:hover img {
+            filter: grayscale(50%) contrast(120%) brightness(0.8) sepia(50%) hue-rotate(-30deg);
+        }
+
+        .image-glitch {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(139, 0, 0, 0.2);
+            mix-blend-mode: overlay;
+            animation: imageGlitch 3s infinite;
+            pointer-events: none;
+        }
+
+        @keyframes imageGlitch {
+            0%, 90%, 100% { opacity: 0; transform: translate(0); }
+            91% { opacity: 0.5; transform: translate(-5px, 5px); }
+            92% { opacity: 0; transform: translate(5px, -5px); }
+            93% { opacity: 0.5; transform: translate(-5px, -5px); }
+            94% { opacity: 0; transform: translate(0); }
+        }
+
+        /* YouTube Video Section */
+        .video-section {
+            max-width: 900px;
+            margin: 50px auto;
+            padding: 40px;
+            border: 2px solid var(--dark-red);
+            background: rgba(10, 10, 10, 0.95);
+            position: relative;
+        }
+
+        .video-section::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, var(--blood-red), transparent, var(--blood-red), transparent, var(--blood-red));
+            z-index: -1;
+            opacity: 0.6;
+            animation: borderPulse 3s infinite;
+        }
+
+        @keyframes borderPulse {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 0.8; }
+        }
+
+        .video-container {
+            position: relative;
+            padding-bottom: 56.25%;
+            height: 0;
+            overflow: hidden;
+            border: 3px solid var(--dark-red);
+            box-shadow: 0 0 30px rgba(139, 0, 0, 0.3);
+        }
+
+        .video-container iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            filter: grayscale(30%) contrast(120%);
+            transition: all 0.3s;
+        }
+
+        .video-container:hover iframe {
+            filter: grayscale(0%) contrast(100%);
+        }
+
+        .video-glitch {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(139, 0, 0, 0.1);
+            mix-blend-mode: overlay;
+            animation: videoGlitch 4s infinite;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        @keyframes videoGlitch {
+            0%, 95%, 100% { opacity: 0; }
+            96% { opacity: 0.3; }
+            97% { opacity: 0; }
+            98% { opacity: 0.2; }
+            99% { opacity: 0; }
+        }
+
+        /* Screenshot Gallery - ALWAYS VISIBLE */
+        .screenshot-section {
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 40px;
+            display: block;
+        }
+
+        .screenshot-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-top: 30px;
+        }
+
+        .screenshot-item {
+            position: relative;
+            overflow: hidden;
+            border: 3px solid var(--dark-red);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .screenshot-item:hover {
+            border-color: var(--blood-red);
+            transform: scale(1.02);
+            box-shadow: 0 0 30px rgba(139,0,0,0.5);
+        }
+
+        .screenshot-item img {
+            width: 100%;
+            height: 220px;
+            object-fit: cover;
+            filter: grayscale(80%) contrast(140%) brightness(0.6);
+            transition: all 0.5s;
+        }
+
+        .screenshot-item:hover img {
+            filter: grayscale(30%) contrast(110%) brightness(0.8) sepia(30%);
+        }
+
+        /* Features List */
+        .features-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .features-list li {
+            font-size: 1.05rem;
+            line-height: 2.2;
+            color: #888;
+            margin-bottom: 8px;
+            padding-left: 20px;
+            position: relative;
+            transition: all 0.2s;
+        }
+
+        .features-list li::before {
+            content: '>';
+            position: absolute;
+            left: 0;
+            color: var(--blood-red);
+        }
+
+        .features-list li:hover {
+            color: var(--white);
+        }
+
+        .features-list li.japanese-mode {
+            color: var(--blood-red);
+            font-family: 'Noto Sans JP', sans-serif;
+            text-shadow: 0 0 8px rgba(139,0,0,0.4);
+        }
+
+        /* Footer - Minimal */
+        .footer {
+            text-align: center;
+            padding: 40px;
+            color: #333;
+            font-size: 0.85rem;
+            border-top: 1px solid var(--dark-red);
+            margin-top: auto;
+        }
+
+        /* Hidden Message */
+        .hidden-message {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            font-size: 0.7rem;
+            color: #222;
+            opacity: 0;
+            transition: opacity 2s;
+        }
+
+        .hidden-message:hover {
+            opacity: 1;
+            color: var(--blood-red);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .content-section, .video-section {
+                margin: 30px 15px;
+                padding: 25px;
+            }
+            .screenshot-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Overlays -->
+    <div class="noise"></div>
+    <div class="scanlines"></div>
+    <div class="vignette"></div>
+    <div class="blood-flash" id="bloodFlash"></div>
+    <div class="japanese-tint" id="japaneseTint"></div>
+
+    <!-- Blood Drips -->
+    <div class="blood-drip" style="left: 10%; animation-delay: 0s;"></div>
+    <div class="blood-drip" style="left: 25%; animation-delay: 1s;"></div>
+    <div class="blood-drip" style="left: 50%; animation-delay: 2s;"></div>
+    <div class="blood-drip" style="left: 75%; animation-delay: 0.5s;"></div>
+    <div class="blood-drip" style="left: 90%; animation-delay: 1.5s;"></div>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Header -->
+        <div class="glitch-wrapper">
+            <h1 class="glitch" data-text="HEAR YOUR SCREAM">HEAR YOUR SCREAM</h1>
+            <p class="japanese-text">あなたの叫びを聞く</p>
+            <p class="subtitle">THEY ARE ALREADY HERE...</p>
+        </div>
+
+        <!-- Menu -->
+        <nav class="menu">
+            <a href="#about" class="menu-item">ENTER THE NIGHTMARE</a>
+            <a href="#trailer" class="menu-item">WATCH THE TERROR</a>
+            <a href="#download" class="menu-item download-btn">DOWNLOAD THE NIGHTMARE</a>
+            <a href="#screenshots" class="menu-item screenshot-btn">VIEW SCREENSHOTS</a>
+        </nav>
+
+        <!-- Warning Box -->
+        <div class="warning-box">
+            <p class="warning-text">EXTREME PSYCHOLOGICAL HORROR</p>
+            <p style="margin-top: 10px; color: #666; font-size: 0.95rem;">
+                This game contains intense Japanese horror imagery<br>
+                and psychological trauma. Not for the faint of heart.
+            </p>
+        </div>
+
+        <!-- Scrolling Text -->
+        <div class="scrolling-text">
+            <span>日本の恐怖 • 学校の幽霊 • 神社の呪い • 血の儀式 • JAPANESE HORROR • SCHOOL GHOSTS • SHRINE CURSES • BLOOD RITUALS • THEY ARE WATCHING • YOU CANNOT ESCAPE •</span>
+        </div>
+
+        <!-- About Section -->
+        <section id="about" class="content-section">
+            <h2 class="section-title translatable-title" data-en="THE HORROR AWAITS" data-jp="恐怖が待っている">THE HORROR AWAITS</h2>
+            <div id="aboutTextContainer">
+                <p class="section-text translatable" data-en="Welcome to a nightmare woven from the darkest threads of Japanese folklore. Hear Your Scream plunges you into a world where ancient evils have awakened, and the boundary between the living and the dead has been torn asunder." data-jp="日本の民俗学の最も暗い糸から織りなされた悪夢へようこそ。あなたの叫びは、古代の悪が目覚め、生と死の境界が引き裂かれた世界にあなたを突き落とす。">
+                    Welcome to a nightmare woven from the darkest threads of Japanese folklore. Hear Your Scream plunges you into a world where ancient evils have awakened, and the boundary between the living and the dead has been torn asunder.
+                </p>
+                <p class="section-text translatable" data-en="Your journey will take you through haunted Japanese school hallways where the echoes of past tragedies still linger, desecrated shrines where corrupted spirits hunger for mortal souls, and forbidden ritual chambers where cultists perform unspeakable ceremonies in the name of forgotten gods." data-jp="あなたの旅は、過去の悲劇の反響がまだ残る呪われた日本の学校の廊下、堕落した魂が人間の魂を渇望する冒涜された神社、忘れられた神々の名の下で言い知れぬ儀式を行う邪教信者の禁じられた儀式の間を通るでしょう。">
+                    Your journey will take you through haunted Japanese school hallways where the echoes of past tragedies still linger, desecrated shrines where corrupted spirits hunger for mortal souls, and forbidden ritual chambers where cultists perform unspeakable ceremonies in the name of forgotten gods.
+                </p>
+                <p class="section-text translatable" data-en="The anomalies you encounter are far more than mere ghosts. This is psychological horror that will slowly erode your sanity, twisting your perception until you question what is real. Sudden jump scares will shatter your nerves when you least expect them." data-jp="あなたが遭遇する異常は単なる幽霊以上のものです。これはあなたの正気をゆっくりと侵食し、あなたの認識をねじ曲げて、何が本物か疑問に思うまでになる心理的恐怖です。">
+                    The anomalies you encounter are far more than mere ghosts. This is psychological horror that will slowly erode your sanity, twisting your perception until you question what is real. Sudden jump scares will shatter your nerves when you least expect them.
+                </p>
+                <p class="section-text translatable" data-en="But beware, amidst the terror, moments of dark comedy may catch you off guard, making you scream and laugh in the same breath. Every corner holds a new surprise, every shadow conceals a new horror." data-jp="しかし注意してください。恐怖の中にも、暗いコメディの瞬間があなたの不意を突き、同じ息で叫びと笑いをさせるかもしれません。すべての角に新しい驚きがあり、すべての影に新しい恐怖が隠されています。">
+                    But beware, amidst the terror, moments of dark comedy may catch you off guard, making you scream and laugh in the same breath. Every corner holds a new surprise, every shadow conceals a new horror.
+                </p>
+                <p class="section-text translatable" data-en="You will face an unholy pantheon of entities: grotesque Yokai with faces stretched beyond human recognition, vengeful Oni demons wielding rusted blades, corrupted Samurai spirits bound by dishonor, and entities that wear the faces of cute girls, beautiful masks hiding unspeakable malice." data-jp="あなたは不浄な神々の殿堂に直面するでしょう。人間の認識を超えて伸ばされた顔を持つ奇妙な妖怪、錆びた刃を振るう復讐心に燃える鬼の悪魔、不名誉に縛られた堕落した侍の魂、そして可愛い女の子の顔をした存在たち。">
+                    You will face an unholy pantheon of entities: grotesque Yokai with faces stretched beyond human recognition, vengeful Oni demons wielding rusted blades, corrupted Samurai spirits bound by dishonor, and entities that wear the faces of cute girls, beautiful masks hiding unspeakable malice.
+                </p>
+                <p class="section-text translatable" style="color: #666; font-style: italic;" data-en="The question is not whether you will survive... but what will be left of you when it's over." data-jp="問題はあなたが生き残るかどうかではありません... それが終わったときにあなたに何が残るかということです。">
+                    The question is not whether you will survive... but what will be left of you when it's over.
+                </p>
+            </div>
+        </section>
+
+        <!-- Main Image -->
+        <div class="image-container">
+            <img src="https://i.imgur.com/nZtNeq5_d.webp?maxwidth=760&fidelity=grand" alt="Hear Your Scream">
+            <div class="image-glitch"></div>
+        </div>
+
+        <!-- YouTube Trailer Section - NO JAPANESE TRANSLATION -->
+        <section id="trailer" class="video-section">
+            <h2 class="section-title">WATCH THE TERROR</h2>
+            <p class="section-text" style="text-align: center;">
+                Experience the nightmare. Turn up your volume... if you dare.
+            </p>
+            <div class="video-container">
+                <iframe 
+                    src="https://www.youtube.com/embed/zcMhU3EJazE?rel=0&modestbranding=1" 
+                    title="Hear Your Scream - Official Trailer"
+                    frameborder="0" 
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                    allowfullscreen>
+                </iframe>
+                <div class="video-glitch"></div>
+            </div>
+        </section>
+
+        <!-- Features Section -->
+        <section class="content-section">
+            <h2 class="section-title translatable-title" data-en="WHAT AWAITS YOU" data-jp="何が待っているか">WHAT AWAITS YOU</h2>
+            <ul class="features-list" id="featuresList">
+                <li class="translatable" data-en="Authentic Japanese horror settings including cursed schools, haunted shrines, and forbidden ritual chambers" data-jp="呪われた学校、幽霊の出る神社、禁じられた儀式の間を含む本物の日本のホラー設定">Authentic Japanese horror settings including cursed schools, haunted shrines, and forbidden ritual chambers</li>
+                <li class="translatable" data-en="Diverse yokai and supernatural entities ranging from grotesque demons to deceptively cute apparitions" data-jp="奇妙な悪魔から欺くほど可愛い幽霊まで、多様な妖怪と超自然的存在">Diverse yokai and supernatural entities ranging from grotesque demons to deceptively cute apparitions</li>
+                <li class="translatable" data-en="Advanced sanity system that deteriorates as you witness increasingly disturbing events" data-jp="ますます不快な出来事を目撃すると劣化していく高度な正気システム">Advanced sanity system that deteriorates as you witness increasingly disturbing events</li>
+                <li class="translatable" data-en="Perfect blend of slow-burn psychological horror and sudden jump scares" data-jp="スローバーンの心理的恐怖と突然のジャンプスケアの完璧な融合">Perfect blend of slow-burn psychological horror and sudden jump scares</li>
+                <li class="translatable" data-en="Unexpected dark comedy moments that catch you off guard" data-jp="あなたの不意を突く予期せぬ暗いコメディの瞬間">Unexpected dark comedy moments that catch you off guard</li>
+                <li class="translatable" data-en="Multiple endings determined by your choices and remaining sanity" data-jp="あなたの選択と残された正気によって決まる複数のエンディング">Multiple endings determined by your choices and remaining sanity</li>
+                <li class="translatable" data-en="Binaural audio design that puts you in the center of the nightmare" data-jp="悪夢の中心にあなたを置くバイノーラルオーディオデザイン">Binaural audio design that puts you in the center of the nightmare</li>
+                <li class="translatable" data-en="Procedural anomaly placement ensures no two playthroughs are the same" data-jp="手続き的な異常配置により、2回のプレイスルーが同じになることはない">Procedural anomaly placement ensures no two playthroughs are the same</li>
+                <li class="translatable" data-en="Hidden lore fragments that reveal the dark history of each location" data-jp="各場所の暗い歴史を明らかにする隠された伝説の断片">Hidden lore fragments that reveal the dark history of each location</li>
+                <li class="translatable" data-en="Full controller support with haptic feedback for maximum immersion" data-jp="最大の没入感のための触覚フィードバックを備えたフルコントローラーサポート">Full controller support with haptic feedback for maximum immersion</li>
+            </ul>
+        </section>
+
+        <!-- Screenshot Section - NO JAPANESE TRANSLATION -->
+        <section id="screenshots" class="screenshot-section">
+            <h2 class="section-title">GAME SCREENSHOTS</h2>
+            <p class="section-text" style="text-align: center;">
+                Glimpses of the horrors that await in the darkness.
+            </p>
+            <div class="screenshot-grid">
+                <!-- Screenshot 1 -->
+                <div class="screenshot-item">
+                    <img src="https://i.imgur.com/EPa9A9F_d.webp?maxwidth=760&fidelity=grand" alt="Screenshot 1">
+                </div>
+                <!-- Screenshot 2 -->
+                <div class="screenshot-item">
+                    <img src="https://i.imgur.com/E937x4t_d.webp?maxwidth=760&fidelity=grand" alt="Screenshot 2">
+                </div>
+                <!-- Screenshot 3 -->
+                <div class="screenshot-item">
+                    <img src="https://i.imgur.com/oiky5J7_d.webp?maxwidth=760&fidelity=grand" alt="Screenshot 3">
+                </div>
+                <!-- Screenshot 4 -->
+                <div class="screenshot-item">
+                    <img src="https://i.imgur.com/o8ZRUUG_d.webp?maxwidth=760&fidelity=grand" alt="Screenshot 4">
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer - Minimal -->
+        <footer class="footer">
+            <p>2026 HEAR YOUR SCREAM</p>
+            <p style="margin-top: 10px; font-size: 0.75rem; color: #222;">
+                あなたを見ている
+            </p>
+        </footer>
+    </div>
+
+    <!-- Hidden Message -->
+    <div class="hidden-message">Look behind you...</div>
+
+    <script>
+        // ALL text converts to Japanese simultaneously
+        const translatableElements = document.querySelectorAll('.translatable');
+        const translatableTitles = document.querySelectorAll('.translatable-title');
+        const bloodFlash = document.getElementById('bloodFlash');
+        const japaneseTint = document.getElementById('japaneseTint');
+
+        function triggerJapaneseFlash() {
+            // Trigger blood flash and red tint
+            bloodFlash.classList.add('active');
+            japaneseTint.classList.add('active');
+            
+            // Convert ALL titles to Japanese
+            translatableTitles.forEach(title => {
+                title.textContent = title.getAttribute('data-jp');
+                title.classList.add('japanese-mode');
+            });
+            
+            // Convert ALL paragraphs to Japanese
+            translatableElements.forEach(el => {
+                el.textContent = el.getAttribute('data-jp');
+                el.classList.add('japanese-mode');
+            });
+            
+            // Revert ALL back to English after 0.5-1 second
+            const duration = Math.random() * 500 + 500;
+            
+            setTimeout(() => {
+                // Revert titles
+                translatableTitles.forEach(title => {
+                    title.classList.remove('japanese-mode');
+                    title.textContent = title.getAttribute('data-en');
+                });
+                
+                // Revert paragraphs
+                translatableElements.forEach(el => {
+                    el.classList.remove('japanese-mode');
+                    el.textContent = el.getAttribute('data-en');
+                });
+                
+                // Remove effects
+                japaneseTint.classList.remove('active');
+            }, duration);
+            
+            // Remove blood flash
+            setTimeout(() => {
+                bloodFlash.classList.remove('active');
+            }, 400);
+        }
+
+        // Random intervals 5-9 seconds
+        function scheduleNextFlash() {
+            const delay = Math.random() * 4000 + 5000;
+            setTimeout(() => {
+                triggerJapaneseFlash();
+                scheduleNextFlash();
+            }, delay);
+        }
+
+        // Start the effect
+        scheduleNextFlash();
+
+        // Console easter egg
+        console.log('%cHEAR YOUR SCREAM', 'font-size: 40px; color: #8b0000; font-family: monospace;');
+        console.log('%cあなたの叫びを聞く', 'font-size: 20px; color: #444;');
+        console.log('%cThey can hear you breathing...', 'font-size: 15px; color: #666;');
+    </script>
+</body>
+</html>
